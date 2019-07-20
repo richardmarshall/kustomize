@@ -8,7 +8,12 @@ import (
 	"log"
 	"strings"
 
+	"os"
+	"path/filepath"
+
+	"sigs.k8s.io/kustomize/v3/k8sdeps/kunstruct"
 	"sigs.k8s.io/kustomize/v3/pkg/fs"
+	"sigs.k8s.io/kustomize/v3/pkg/pgmconfig"
 )
 
 func GlobPatterns(fsys fs.FileSystem, patterns []string) ([]string, error) {
@@ -54,4 +59,39 @@ func trimQuotes(s string) string {
 		}
 	}
 	return s
+}
+
+func DetectResources(fSys fs.FileSystem, base string, recursive bool) ([]string, error) {
+	var paths []string
+	factory := kunstruct.NewKunstructuredFactoryImpl()
+	err := fSys.Walk(base, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == "." {
+			return nil
+		}
+		if info.IsDir() {
+			if !recursive {
+				return filepath.SkipDir
+			}
+			for _, kfilename := range pgmconfig.KustomizationFileNames {
+				if fSys.Exists(filepath.Join(path, kfilename)) {
+					paths = append(paths, path)
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		fContents, err := fSys.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if _, err := factory.SliceFromBytes(fContents); err != nil {
+			return nil
+		}
+		paths = append(paths, path)
+		return nil
+	})
+	return paths, err
 }
