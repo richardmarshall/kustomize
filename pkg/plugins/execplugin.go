@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -104,24 +105,23 @@ func (p *ExecPlugin) processOptionalArgsFields() error {
 }
 
 func (p *ExecPlugin) writeConfig() (string, error) {
-	tmpFile, err := ioutil.TempFile("", "kust-pipe")
+	tmpDir, err := ioutil.TempDir("", "kustomize")
 	if err != nil {
 		return "", err
 	}
-	syscall.Mkfifo(tmpFile.Name(), 0600)
-	stdout, err := os.OpenFile(tmpFile.Name(), os.O_RDWR, 0600)
-	if err != nil {
+	kustPipe := filepath.Join(tmpDir, "pipe")
+	if err := syscall.Mkfifo(kustPipe, 0600); err != nil {
 		return "", err
 	}
-	_, err = stdout.Write(p.cfg)
-	if err != nil {
-		return "", err
-	}
-	err = stdout.Close()
-	if err != nil {
-		return "", err
-	}
-	return tmpFile.Name(), nil
+	go func() {
+		stdout, err := os.OpenFile(kustPipe, os.O_WRONLY, 0600)
+		if err != nil {
+			return
+		}
+		defer stdout.Close()
+		stdout.Write(p.cfg)
+	}()
+	return kustPipe, nil
 }
 
 func (p *ExecPlugin) Generate() (resmap.ResMap, error) {
@@ -147,6 +147,7 @@ func (p *ExecPlugin) Transform(rm resmap.ResMap) error {
 
 	// invoke the plugin with resources as the input
 	output, err := p.invokePlugin(resources)
+	fmt.Println("finished running plugin")
 	if err != nil {
 		return fmt.Errorf("%v %s", err, string(output))
 	}
@@ -157,7 +158,11 @@ func (p *ExecPlugin) Transform(rm resmap.ResMap) error {
 
 // invokePlugin invokes the plugin
 func (p *ExecPlugin) invokePlugin(input []byte) ([]byte, error) {
-	args, err := p.getArgs()
+	pipe, err := p.writeConfig()
+	if err != nil {
+		return nil, err
+	}
+	args, err := p.getArgs(pipe)
 	if err != nil {
 		return nil, err
 	}
@@ -173,12 +178,8 @@ func (p *ExecPlugin) invokePlugin(input []byte) ([]byte, error) {
 
 // The first arg is always the absolute path to a temporary file
 // holding the YAML form of the plugin config.
-func (p *ExecPlugin) getArgs() ([]string, error) {
-	configFileName, err := p.writeConfig()
-	if err != nil {
-		return nil, err
-	}
-	return append([]string{configFileName}, p.args...), nil
+func (p *ExecPlugin) getArgs(pipe string) ([]string, error) {
+	return append([]string{pipe}, p.args...), nil
 }
 
 func (p *ExecPlugin) getEnv() []string {
