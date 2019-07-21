@@ -41,6 +41,7 @@ What transformations (customizations) should be applied?
 |[patchesStrategicMerge](#patchesstrategicmerge)| list |Each entry in this list should resolve to a partial or complete resource definition file.|
 |[patchesJson6902](#patchesjson6902)| list  |Each entry in this list should resolve to a kubernetes object and a JSON patch that will be applied to the object.|
 |[transformers](#transformers)|list|[plugin](plugins) configuration files|
+| [configurations](#configurations) | list | List of transformer configuration files. |
 
 
 ## Meta
@@ -504,4 +505,5 @@ by name, and if kustomize changes the name of a
 ConfigMap, it knows to change the name reference
 in the Deployment.
 
+### configurations
 
