@@ -183,3 +183,7 @@ func (fs *fakeFs) pathMatch(path, pattern string) bool {
 	match, _ := filepath.Match(pattern, path)
 	return match
 }
+
+func (fs *fakeFs) Walk(path string, walkFn filepath.WalkFunc) error {
+	return nil
+}
