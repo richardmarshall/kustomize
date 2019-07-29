@@ -21,11 +21,12 @@ type createFlags struct {
 	suffix          string
 	detectResources bool
 	detectRecursive bool
+	path            string
 }
 
 // NewCmdCreate returns an instance of 'create' subcommand.
 func NewCmdCreate(fSys fs.FileSystem) *cobra.Command {
-	var opts createFlags
+	opts := createFlags{path: "."}
 	c := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new kustomization in the current directory",
@@ -91,7 +92,7 @@ func runCreate(opts createFlags, fSys fs.FileSystem) error {
 		return fmt.Errorf("kustomization file already exists")
 	}
 	if opts.detectResources {
-		detected, err := util.DetectResources(fSys, ".", opts.detectRecursive)
+		detected, err := util.DetectResources(fSys, opts.path, opts.detectRecursive)
 		if err != nil {
 			return err
 		}

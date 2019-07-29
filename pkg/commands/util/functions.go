@@ -73,7 +73,7 @@ func DetectResources(fSys fs.FileSystem, base string, recursive bool) ([]string,
 		if err != nil {
 			return err
 		}
-		if path == "." {
+		if path == base {
 			return nil
 		}
 		if info.IsDir() {
