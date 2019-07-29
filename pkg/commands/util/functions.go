@@ -16,6 +16,8 @@ import (
 	"sigs.k8s.io/kustomize/v3/pkg/pgmconfig"
 )
 
+// GlobPatterns accepts a slice of glob strings and returns the set of
+// matching file paths.
 func GlobPatterns(fsys fs.FileSystem, patterns []string) ([]string, error) {
 	var result []string
 	for _, pattern := range patterns {
@@ -32,13 +34,15 @@ func GlobPatterns(fsys fs.FileSystem, patterns []string) ([]string, error) {
 	return result, nil
 }
 
-func ConvertToMap(inputs []string) (map[string]string, error) {
+// ConvertToMap converts a slice of strings in the form of
+// `key:value` into a map.
+func ConvertToMap(inputs []string, kind string) (map[string]string, error) {
 	result := make(map[string]string)
 	for _, input := range inputs {
 		c := strings.Index(input, ":")
 		if c == 0 {
 			// key is not passed
-			return nil, fmt.Errorf("invalid %s, %s", input, "need k:v pair where v may be quoted")
+			return nil, fmt.Errorf("invalid %s: '%s' (%s)", kind, input, "need k:v pair where v may be quoted")
 		} else if c < 0 {
 			// only key passed
 			result[input] = ""
@@ -61,6 +65,7 @@ func trimQuotes(s string) string {
 	return s
 }
 
+// DetectResources searches a path for kubernetes resource files.
 func DetectResources(fSys fs.FileSystem, base string, recursive bool) ([]string, error) {
 	var paths []string
 	factory := kunstruct.NewKunstructuredFactoryImpl()
@@ -75,6 +80,8 @@ func DetectResources(fSys fs.FileSystem, base string, recursive bool) ([]string,
 			if !recursive {
 				return filepath.SkipDir
 			}
+			// If a sub-directory contains an existing kustomization file add the
+			// directory as a resource and do not decend into it.
 			for _, kfilename := range pgmconfig.KustomizationFileNames {
 				if fSys.Exists(filepath.Join(path, kfilename)) {
 					paths = append(paths, path)
